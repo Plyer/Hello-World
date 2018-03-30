@@ -6,30 +6,82 @@ import java.net.URL;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
+import com.example.demo.model.Article;
 
 public class Spider {
 	
 	public static void main(String[] args) throws Exception {
-		singlePageAnalysisAndInsert("http://mp.weixin.qq.com/s?src=11&timestamp=1522307538&ver=783&signature=YX*PemHKIRUrcq*ElEdxH120baE20GCHBBkZl1v1sjLgPPlICXrkRHfz7OS2PjOmx26EMhZ1ftMgKSlaGjiFh8BCHr4yQE8niKE7Ea3u6DeImx-eUctlxCWuQSSeZw9a&new=1");
+		
+		List<String> list = getArticleUrlList("http://weixin.sogou.com/pcindex/pc/pc_7/pc_7.html");
+		List<Article> arcList = new ArrayList<>();
+		for (String l : list) {
+			arcList.add(singlePageAnalysis(l));
+		}
+		insert(arcList);
 	}
 	
-	public static void singlePageAnalysisAndInsert(String strUrl) throws Exception {
+	public static void insert(List<Article> list) throws Exception {
+		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+		SimpleDateFormat sdf2 = new SimpleDateFormat("yyyy-MM-dd");
 		// 初始化数据库
 		Class.forName("com.mysql.jdbc.Driver");
-		String jdbcUrl = "jdbc:mysql://localhost:3306/springboot";
-		String user = "root";
-		String password = "123456";
+		String jdbcUrl = "jdbc:mysql://10.90.60.201:3306/car_only";
+		String user = "hxwebuser";
+		String password = "hx2car88212994";
 		Connection conn = DriverManager.getConnection(jdbcUrl, user, password);
-		String sql = "";
+		conn.setAutoCommit(false);
+		String sql = "insert into car_article (create_time,modify_time,title,post_date,content,pic_url,flag) values (?,?,?,?,?,?,?)";
 		PreparedStatement pst = conn.prepareStatement(sql);
+		
+		
+		for (Article arc : list) {
+			String now = sdf.format(new Date());
+			System.out.println(now);
+			pst.setString(1, now);
+			pst.setString(2, now);
+			pst.setString(3, arc.getTitle());
+			pst.setString(4, sdf2.format(arc.getPostDate()));
+			pst.setString(5, arc.getContent());
+			pst.setString(6, arc.getPicUrl());
+			pst.setInt(7, arc.getFlag());
+			pst.addBatch();
+		}
+		pst.executeBatch();
+		conn.commit();
+		pst.close();
+		conn.close();
+	}
+	
+	public static List<String> getArticleUrlList(String rootUrl) throws Exception {
+		URL url = new URL(rootUrl);
+		BufferedReader bufr = new BufferedReader(new InputStreamReader(url.openStream(), "utf-8"));
+		
+		List<String> urlList = new ArrayList<>();
+		String line = "";
+		int count = 0;
+		while ((line = bufr.readLine()) != null) {
+			if (line.indexOf("<h3><a uigs=\"pc_7_" + count + "_title\" href=\"") != -1) {
+				String targetUrl = line.trim().split("href")[1].split("\"")[1];
+				urlList.add(targetUrl);
+				count++;
+			}
+		}
+		return urlList;
+	}
+	
+	public static Article singlePageAnalysis(String strUrl) throws Exception {
 		List<String> list = new ArrayList<>();
+		Article article = new Article();
 		
 		// 从url获取输入流
 		URL url = new URL(strUrl);
 		BufferedReader bufr = new BufferedReader(new InputStreamReader(url.openStream(), "utf-8"));
+		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
 		
 		// 获取目标行html代码 targetLine
 		String targetLine = "";
@@ -42,14 +94,14 @@ public class Spider {
 				line = bufr.readLine().trim();
 				if (line.indexOf("</h2>") != -1) {
 					title = line.substring(0, line.length() - 5).trim();
-					list.add(title);
+					article.setTitle(title);
 				}
 			}
 			
 			if (line.indexOf("id=\"post-date\"") != -1) {
 				line = line.substring(line.indexOf(">") + 1).trim();
 				postDate = line.substring(0, line.length() - 5).trim();
-				list.add(postDate);
+				article.setPostDate(sdf.parse(postDate));
 			}
 			
 			if (line.indexOf("id=\"js_content\"") != -1) {
@@ -62,6 +114,7 @@ public class Spider {
 				break;
 			}
 		}
+		bufr.close();
 		
 		// 解析targetLine
 		for (String str : targetLine.trim().split("</p>")) {
@@ -85,17 +138,38 @@ public class Spider {
 					list.add(sb.toString());
 				}
 			}
-			
+			 
 			if (str.indexOf("<img") != -1) {
 				str = str.substring(str.indexOf("<img"));
 				String picUrl = str.split("data-src=\"")[1].split("\"")[0];
+				picUrl = DownloadImg.run(picUrl);
 				list.add(picUrl);
 			}
 		}
 		
-		for (String a : list) {
-			System.out.println(a);
+		StringBuilder content = new StringBuilder();
+		StringBuilder picUrl = new StringBuilder();
+		String conStr = null;
+		String picStr = null;
+		for (int i = 0, j = 0; i < list.size(); i++) {
+			if (list.get(i).startsWith("https://")) {
+				String key = "url" + j;
+				picUrl.append(key + "|" + list.get(i) + "@@");
+				list.set(i, key);
+				j++;
+			}
+			content.append(list.get(i) + "|");
 		}
+		if (content.toString().endsWith("|")) {
+			conStr = content.substring(0, content.length() - 7);
+		}
+		if (picUrl.toString().endsWith("@@")) {
+			picStr = picUrl.substring(0, picUrl.length() - 1);
+		}
+		article.setContent(conStr);
+		article.setFlag(0);
+		article.setPicUrl(picStr);
+		return article;
 	}
 	
 	private static String killTag(String str) {
