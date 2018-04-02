@@ -14,6 +14,15 @@ public class Article implements Serializable {
 	private String content;
 	private String picUrl;
 	private Integer flag;
+	private String origin;
+
+	public String getOrigin() {
+		return origin;
+	}
+
+	public void setOrigin(String origin) {
+		this.origin = origin;
+	}
 
 	public Long getId() {
 		return id;

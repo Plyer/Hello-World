@@ -13,19 +13,23 @@ import java.util.List;
 
 import com.example.demo.model.Article;
 
-public class Spider {
+public class Spider implements Runnable {
 	
-	public static void main(String[] args) throws Exception {
-		
-		List<String> list = getArticleUrlList("http://weixin.sogou.com/pcindex/pc/pc_7/pc_7.html");
-		List<Article> arcList = new ArrayList<>();
-		for (String l : list) {
-			arcList.add(singlePageAnalysis(l));
+	@Override
+	public void run() {
+		try {
+			List<String> list = getArticleUrlList("http://weixin.sogou.com/pcindex/pc/pc_7/pc_7.html");
+			List<Article> arList = new ArrayList<>();
+			for (String i : list) {
+				arList.add(singlePageAnalysis(i));
+			}
+			insert(arList);
+		} catch (Exception e) {
+			e.printStackTrace();
 		}
-		insert(arcList);
 	}
 	
-	public static void insert(List<Article> list) throws Exception {
+	private void insert(List<Article> list) throws Exception {
 		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 		SimpleDateFormat sdf2 = new SimpleDateFormat("yyyy-MM-dd");
 		// 初始化数据库
@@ -35,20 +39,24 @@ public class Spider {
 		String password = "hx2car88212994";
 		Connection conn = DriverManager.getConnection(jdbcUrl, user, password);
 		conn.setAutoCommit(false);
-		String sql = "insert into car_article (create_time,modify_time,title,post_date,content,pic_url,flag) values (?,?,?,?,?,?,?)";
+		String sql = "insert into car_article (create_time,modify_time,title,post_date,content,pic_url,flag,origin) values (?,?,?,?,?,?,?,?)";
 		PreparedStatement pst = conn.prepareStatement(sql);
 		
 		
 		for (Article arc : list) {
+			if (arc == null) {
+				continue;
+			}
 			String now = sdf.format(new Date());
-			System.out.println(now);
 			pst.setString(1, now);
 			pst.setString(2, now);
 			pst.setString(3, arc.getTitle());
+			System.out.println(arc.getTitle());
 			pst.setString(4, sdf2.format(arc.getPostDate()));
 			pst.setString(5, arc.getContent());
 			pst.setString(6, arc.getPicUrl());
 			pst.setInt(7, arc.getFlag());
+			pst.setString(8, arc.getOrigin());
 			pst.addBatch();
 		}
 		pst.executeBatch();
@@ -57,7 +65,7 @@ public class Spider {
 		conn.close();
 	}
 	
-	public static List<String> getArticleUrlList(String rootUrl) throws Exception {
+	private List<String> getArticleUrlList(String rootUrl) throws Exception {
 		URL url = new URL(rootUrl);
 		BufferedReader bufr = new BufferedReader(new InputStreamReader(url.openStream(), "utf-8"));
 		
@@ -74,7 +82,7 @@ public class Spider {
 		return urlList;
 	}
 	
-	public static Article singlePageAnalysis(String strUrl) throws Exception {
+	private Article singlePageAnalysis(String strUrl) throws Exception {
 		List<String> list = new ArrayList<>();
 		Article article = new Article();
 		
@@ -98,9 +106,19 @@ public class Spider {
 				}
 			}
 			
+			if (line.indexOf("id=\"post-user\"") != -1) {
+				if (line.indexOf(">") != -1) {
+					String origin = line.trim().split(">")[1].split("<")[0].trim();
+					article.setOrigin(origin);
+				}
+			}
+			
 			if (line.indexOf("id=\"post-date\"") != -1) {
 				line = line.substring(line.indexOf(">") + 1).trim();
 				postDate = line.substring(0, line.length() - 5).trim();
+				/*if (!postDate.equals(sdf.format(new Date()))) {
+					return null;
+				}*/
 				article.setPostDate(sdf.parse(postDate));
 			}
 			
@@ -138,11 +156,10 @@ public class Spider {
 					list.add(sb.toString());
 				}
 			}
-			 
+			
 			if (str.indexOf("<img") != -1) {
 				str = str.substring(str.indexOf("<img"));
 				String picUrl = str.split("data-src=\"")[1].split("\"")[0];
-				picUrl = DownloadImg.run(picUrl);
 				list.add(picUrl);
 			}
 		}
@@ -152,19 +169,29 @@ public class Spider {
 		String conStr = null;
 		String picStr = null;
 		for (int i = 0, j = 0; i < list.size(); i++) {
-			if (list.get(i).startsWith("https://")) {
+			if (list.get(i).startsWith("http")) {
+				// 如果第一条或最后一条内容是图片则不记录
+				if (i == 0 || i == list.size() - 1) {
+					continue;
+				}
 				String key = "url" + j;
 				picUrl.append(key + "|" + list.get(i) + "@@");
 				list.set(i, key);
 				j++;
 			}
+			
+			String noStr = list.get(i);
+			if (noStr.indexOf("阅读原文") != -1 || noStr.indexOf("阅读全文") != -1 || noStr.indexOf("推荐阅读") != -1 ||
+					noStr.indexOf("更多行业新闻") != -1) {
+				break;
+			}
 			content.append(list.get(i) + "|");
 		}
 		if (content.toString().endsWith("|")) {
-			conStr = content.substring(0, content.length() - 7);
+			conStr = content.substring(0, content.length() - 1);
 		}
 		if (picUrl.toString().endsWith("@@")) {
-			picStr = picUrl.substring(0, picUrl.length() - 1);
+			picStr = picUrl.substring(0, picUrl.length() - 2);
 		}
 		article.setContent(conStr);
 		article.setFlag(0);
@@ -172,7 +199,7 @@ public class Spider {
 		return article;
 	}
 	
-	private static String killTag(String str) {
+	private String killTag(String str) {
 		if (str.indexOf(">") == -1) {
 			return str;
 		}
@@ -188,7 +215,7 @@ public class Spider {
 		return sb.toString();
 	}
 	
-	private static boolean containChinese(String str) {
+	private boolean containChinese(String str) {
 		if (str == null || str.trim().equals("")) {
 			return false;
 		}
