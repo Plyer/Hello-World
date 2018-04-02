@@ -12,9 +12,15 @@ import java.util.Date;
 import java.util.List;
 
 import com.example.demo.model.Article;
+import com.mysql.jdbc.SingleByteCharsetConverter;
 
 public class Spider implements Runnable {
 	
+    public static void main(String[] args) throws Exception {
+        Article arc = new Spider().singlePageAnalysis("http://mp.weixin.qq.com/s?src=11&timestamp=1522670412&ver=792&signature=Xvc6V-xKqNOc4BdWAXI-kZYV-iTRaplfbvM0A82ForKs0SwofBqG8lg9KLkbUlykp6b4cbAelolMKgn5ove0e0WUSvIexZMtWOtyVoGbAkAzipmcOcH0YOOOgDdD723x&new=1");
+        System.out.println(arc.getPicUrl());
+    }
+    
 	@Override
 	public void run() {
 		try {
@@ -51,7 +57,6 @@ public class Spider implements Runnable {
 			pst.setString(1, now);
 			pst.setString(2, now);
 			pst.setString(3, arc.getTitle());
-			System.out.println(arc.getTitle());
 			pst.setString(4, sdf2.format(arc.getPostDate()));
 			pst.setString(5, arc.getContent());
 			pst.setString(6, arc.getPicUrl());
@@ -116,9 +121,9 @@ public class Spider implements Runnable {
 			if (line.indexOf("id=\"post-date\"") != -1) {
 				line = line.substring(line.indexOf(">") + 1).trim();
 				postDate = line.substring(0, line.length() - 5).trim();
-				/*if (!postDate.equals(sdf.format(new Date()))) {
+				if (!postDate.equals(sdf.format(new Date()))) {
 					return null;
-				}*/
+				}
 				article.setPostDate(sdf.parse(postDate));
 			}
 			
@@ -141,7 +146,7 @@ public class Spider implements Runnable {
 				continue;
 			}
 			
-			if (str.indexOf("</span>") != -1) {
+			/*if (str.indexOf("</span>") != -1) {
 				StringBuilder sb = new StringBuilder();
 				for (String spanStr : str.split("</span>")) {
 					spanStr = spanStr.substring(spanStr.indexOf(">") + 1).trim();
@@ -155,12 +160,22 @@ public class Spider implements Runnable {
 				if (!"".equals(sb.toString())) {
 					list.add(sb.toString());
 				}
-			}
+			}*/
+			
+			if (str.indexOf("<a") != -1) {
+	               break;
+	        }
 			
 			if (str.indexOf("<img") != -1) {
-				str = str.substring(str.indexOf("<img"));
-				String picUrl = str.split("data-src=\"")[1].split("\"")[0];
-				list.add(picUrl);
+			    String temp = str;
+			    temp = temp.substring(temp.indexOf("<img"));
+                String picUrl = temp.split("data-src=\"")[1].split("\"")[0];
+                list.add(picUrl);
+            }
+			
+			String temp = str.replaceAll("<([^>]*)>", "").trim();
+			if (containChinese(temp)) {
+			    list.add(temp);
 			}
 		}
 		
@@ -182,7 +197,7 @@ public class Spider implements Runnable {
 			
 			String noStr = list.get(i);
 			if (noStr.indexOf("阅读原文") != -1 || noStr.indexOf("阅读全文") != -1 || noStr.indexOf("推荐阅读") != -1 ||
-					noStr.indexOf("更多行业新闻") != -1) {
+					noStr.indexOf("更多行业新闻") != -1 || noStr.indexOf("end") != -1 || noStr.indexOf("END") != -1) {
 				break;
 			}
 			content.append(list.get(i) + "|");
@@ -197,22 +212,6 @@ public class Spider implements Runnable {
 		article.setFlag(0);
 		article.setPicUrl(picStr);
 		return article;
-	}
-	
-	private String killTag(String str) {
-		if (str.indexOf(">") == -1) {
-			return str;
-		}
-		StringBuilder sb = new StringBuilder();
-		for (String s : str.split(">")) {
-			int temp = s.indexOf("<");
-			if (temp != -1) {
-				sb.append(s.substring(0, temp));
-			} else {
-				sb.append(s);
-			}
-		}
-		return sb.toString();
 	}
 	
 	private boolean containChinese(String str) {
