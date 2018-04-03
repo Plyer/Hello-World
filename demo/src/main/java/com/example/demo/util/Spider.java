@@ -15,7 +15,7 @@ import com.example.demo.model.Article;
 
 public class Spider implements Runnable {
 	
-	private static String[] filterWord = {"点击关注", "公众号", "公号", "每日推送", "<a ", "原创文章", "邮箱", "微信号"};
+	private static String[] filterWord = {"点击关注", "公众号", "公号", "每日推送", "<a ", "原创文章", "邮箱", "微信号", "转载"};
 	private static String[] endWord = {"阅读原文", "阅读全文", "end", "END", "更多行业新闻", "推荐阅读", "点击下面图片", "请戳下面链接", "二维码", "版权", "侵权"};
 	
     public static void main(String[] args) throws Exception {
@@ -142,6 +142,10 @@ public class Spider implements Runnable {
 			}
 		}
 		bufr.close();
+		
+		if (article.getTitle() == null && article.getPostDate() == null) {
+			return null;
+		}
 		
 		// 解析targetLine
 		for (String str : targetLine.trim().split("</p>")) {
