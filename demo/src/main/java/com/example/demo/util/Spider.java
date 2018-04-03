@@ -12,13 +12,14 @@ import java.util.Date;
 import java.util.List;
 
 import com.example.demo.model.Article;
-import com.mysql.jdbc.SingleByteCharsetConverter;
 
 public class Spider implements Runnable {
 	
+	private static String[] filterWord = {"点击关注", "公众号", "公号", "每日推送", "<a ", "原创文章", "邮箱", "微信号"};
+	private static String[] endWord = {"阅读原文", "阅读全文", "end", "END", "更多行业新闻", "推荐阅读", "点击下面图片", "请戳下面链接", "二维码", "版权", "侵权"};
+	
     public static void main(String[] args) throws Exception {
-        Article arc = new Spider().singlePageAnalysis("http://mp.weixin.qq.com/s?src=11&timestamp=1522670412&ver=792&signature=Xvc6V-xKqNOc4BdWAXI-kZYV-iTRaplfbvM0A82ForKs0SwofBqG8lg9KLkbUlykp6b4cbAelolMKgn5ove0e0WUSvIexZMtWOtyVoGbAkAzipmcOcH0YOOOgDdD723x&new=1");
-        System.out.println(arc.getPicUrl());
+    	new Spider().run();
     }
     
 	@Override
@@ -103,21 +104,6 @@ public class Spider implements Runnable {
 		String postDate = null;
 		boolean flag = false;
 		while ((line = bufr.readLine()) != null) {
-			if (line.indexOf("id=\"activity-name\"") != -1) {
-				line = bufr.readLine().trim();
-				if (line.indexOf("</h2>") != -1) {
-					title = line.substring(0, line.length() - 5).trim();
-					article.setTitle(title);
-				}
-			}
-			
-			if (line.indexOf("id=\"post-user\"") != -1) {
-				if (line.indexOf(">") != -1) {
-					String origin = line.trim().split(">")[1].split("<")[0].trim();
-					article.setOrigin(origin);
-				}
-			}
-			
 			if (line.indexOf("id=\"post-date\"") != -1) {
 				line = line.substring(line.indexOf(">") + 1).trim();
 				postDate = line.substring(0, line.length() - 5).trim();
@@ -125,6 +111,24 @@ public class Spider implements Runnable {
 					return null;
 				}
 				article.setPostDate(sdf.parse(postDate));
+				continue;
+			}
+			
+			if (line.indexOf("id=\"activity-name\"") != -1) {
+				line = bufr.readLine().trim();
+				if (line.indexOf("</h2>") != -1) {
+					title = line.substring(0, line.length() - 5).trim();
+					article.setTitle(title);
+				}
+				continue;
+			}
+			
+			if (line.indexOf("id=\"post-user\"") != -1) {
+				if (line.indexOf(">") != -1) {
+					String origin = line.trim().split(">")[1].split("<")[0].trim();
+					article.setOrigin(origin);
+				}
+				continue;
 			}
 			
 			if (line.indexOf("id=\"js_content\"") != -1) {
@@ -146,25 +150,12 @@ public class Spider implements Runnable {
 				continue;
 			}
 			
-			/*if (str.indexOf("</span>") != -1) {
-				StringBuilder sb = new StringBuilder();
-				for (String spanStr : str.split("</span>")) {
-					spanStr = spanStr.substring(spanStr.indexOf(">") + 1).trim();
-					if ("".equals(spanStr)) {
-						continue;
-					}
-					if (containChinese(spanStr)) {
-						sb.append(killTag(spanStr));                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     
-					}
-				}
-				if (!"".equals(sb.toString())) {
-					list.add(sb.toString());
-				}
-			}*/
-			
-			if (str.indexOf("<a") != -1) {
-	               break;
-	        }
+			int fi = filter(str);
+			if (fi == 2) {
+				break;
+			} else if (fi == 1) {
+				continue;
+			}
 			
 			if (str.indexOf("<img") != -1) {
 			    String temp = str;
@@ -194,12 +185,6 @@ public class Spider implements Runnable {
 				list.set(i, key);
 				j++;
 			}
-			
-			String noStr = list.get(i);
-			if (noStr.indexOf("阅读原文") != -1 || noStr.indexOf("阅读全文") != -1 || noStr.indexOf("推荐阅读") != -1 ||
-					noStr.indexOf("更多行业新闻") != -1 || noStr.indexOf("end") != -1 || noStr.indexOf("END") != -1) {
-				break;
-			}
 			content.append(list.get(i) + "|");
 		}
 		if (content.toString().endsWith("|")) {
@@ -212,6 +197,27 @@ public class Spider implements Runnable {
 		article.setFlag(0);
 		article.setPicUrl(picStr);
 		return article;
+	}
+	
+	/**
+	 * 判断字符串是否包含指定关键字
+	 * @param str
+	 * @return 包含过滤字符串则返回1,包含结尾字符串返回2,都不包含返回0
+	 */
+	private int filter(String str) {
+		for (String i : filterWord) {
+			if (str.indexOf(i) != -1) {
+				return 1;
+			}
+		}
+		
+		str = str.replaceAll("<([^>]*)>", "").trim();
+		for (String i : endWord) {
+			if (str.indexOf(i) != -1) {
+				return 2;
+			}
+		}
+		return 0;
 	}
 	
 	private boolean containChinese(String str) {
