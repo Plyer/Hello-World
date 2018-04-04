@@ -1,6 +1,7 @@
 package com.example.demo.test;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -16,22 +17,23 @@ public class RegexTest {
          return result;  
      }  
      
-	public static List<String> get(String tagName) {
+	public static String[] get(String tagName, String source) {
 		if (tagName == null || "".equals(tagName)) {
 			return null;
 		}
 		
-		List<String> list = new ArrayList<>();
-		String regex = "<" + tagName + ".*?" + ">";
-		return list;
+		String regex = "<" + tagName + " .*?" + ">|</" + tagName + ">|<" + tagName + ">";
+		String[] arr = source.split(regex);
+		return Arrays.copyOfRange(arr, 1, arr.length - 1);
 	}
 	
 	public static void main(String[] args) {
-		String url = "http://172.12.1.123/test.txt/1.1.1.1";
-		String regex = "(\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3})";
-	 //        String regex = "(\\d{1,3}\\.){1,3}(\\d{1,3})";
-	    for (String i : getMatcher(regex, url)) {
-	    	System.out.println(i);
-	    }
+		String source = "<p hahahahaha heheh 12313 >你好<p>Java<span clo>span</span></p></p><p hahahahaha heheh 12313 >世界</p>";
+		for (String i : get("p", source)) {
+		   /* if ("".equals(i)) {
+		        continue;
+		    }*/
+		    System.out.println(i);
+		}
 	}
 }
