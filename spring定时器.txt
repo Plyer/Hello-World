@@ -1,0 +1,24 @@
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:context="http://www.springframework.org/schema/context" 
+	xmlns:task="http://www.springframework.org/schema/task" 
+	xsi:schemaLocation="
+	http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.0.xsd
+	http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-3.0.xsd
+	http://www.springframework.org/schema/task http://www.springframework.org/schema/task/spring-task-3.0.xsd">
+
+	<context:component-scan base-package="com.car.task" /><!--需要扫描的包--> 
+	<context:annotation-config /><!--开启注解--> 
+	<task:annotation-driven/> <!-- 这句是重点 定时器开关-->
+	
+	<bean id="PersonalPortraitTask" class="com.car.task.PersonalPortraitTask"/>
+	<bean id="PersonalBrowseTagTask" class="com.car.task.PersonalBrowseTagTask"/>
+	<bean id="QualityCarTask" class="com.car.task.QualityCarTask"/>
+	<bean id="webStatisticsTask" class="com.car.task.WebStatisticsTask" />
+
+
+	<bean id="CountLogTask" class="com.car.task.CountLogTask"/>
+	<task:scheduled-tasks>  
+			<task:scheduled ref="PersonalBrowseTagTask" method="run" cron="0 0/1 * * * ?" />
+    </task:scheduled-tasks>  
+</beans>
