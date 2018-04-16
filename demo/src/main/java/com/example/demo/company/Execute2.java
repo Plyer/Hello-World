@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import com.car.dal.object.personaltag.PersonalBrowseTag;
+import com.example.demo.model.PersonalBrowseTag;
 
 public class Execute2 implements Runnable {
 
@@ -19,7 +19,7 @@ public class Execute2 implements Runnable {
 	public void method() {
 		List<PersonalBrowseTag> list = personalBrowseTagDao.getTagListRecentTwoMonth();
 		// tag: 148+12-24万+5-10年:6|148+12-24万+3-5年:1|
-		Set<String> set = new HashSet<>();
+		Map<String, String> map = new HashMap<>();
 		
 		// 获取所有标签
 		for (PersonalBrowseTag i : list) {
@@ -32,26 +32,19 @@ public class Execute2 implements Runnable {
 				String[] arr = tag.split("\\|");
 				for (String j : arr) {
 					if (j.indexOf(":") != -1) {
-						set.add(j.split(":")[0]);
+						String str = j.split(":")[0];
+						String value = map.get(str);
+						if (value == null) {
+						    map.put(str, i.getMobile());
+						} else {
+						    map.put(str, value + "," + i.getMobile());
+						}
 					} else {
 						continue;
 					}
 				}
 			}
 		}
-		
-		Map<String, String> finalMap = new HashMap<>();
-		for (String i : set) {
-			StringBuilder sb = new StringBuilder("");
-			for (PersonalBrowseTag j : list) {
-				if (j.getTag().indexOf(i) != -1) {
-					sb.append(j.getMobile() + ",");
-				}
-			}
-			finalMap.put(i, sb.toString());
-		}
-		
-		
 	}
 	
 }
